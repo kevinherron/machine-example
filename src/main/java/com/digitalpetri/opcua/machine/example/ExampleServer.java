@@ -174,6 +174,14 @@ public class ExampleServer {
             ExampleServer.class.getResourceAsStream("/Opc.Ua.MachineTool.NodeSet2.xml")
         )
     );
+
+    namespaces.add(
+        ModeledNamespace.create(
+            server,
+            "http://yourorganisation.org/MachineTool-Example/",
+            ExampleServer.class.getResourceAsStream("/Machinetool-Example.xml")
+        )
+    );
   }
 
   private Set<EndpointConfiguration> createEndpointConfigurations(X509Certificate certificate) {
@@ -252,7 +260,7 @@ public class ExampleServer {
 
   public CompletableFuture<OpcUaServer> shutdown() {
     namespaces.forEach(ManagedAddressSpaceFragmentWithLifecycle::shutdown);
-    
+
     return server.shutdown();
   }
 
