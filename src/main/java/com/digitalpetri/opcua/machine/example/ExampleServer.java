@@ -1,6 +1,7 @@
 package com.digitalpetri.opcua.machine.example;
 
 import java.io.File;
+import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.Security;
 import java.security.cert.X509Certificate;
@@ -143,45 +144,25 @@ public class ExampleServer {
 
     server = new OpcUaServer(serverConfig);
 
-    namespaces.add(
-        ModeledNamespace.create(
-            server,
-            "http://opcfoundation.org/UA/DI/",
-            ExampleServer.class.getResourceAsStream("/Opc.Ua.Di.NodeSet2.xml")
-        )
-    );
+    try (InputStream is = ExampleServer.class.getResourceAsStream("/Opc.Ua.Di.NodeSet2.xml")) {
+      namespaces.add(ModeledNamespace.createFromNodeSet(server, is));
+    }
 
-    namespaces.add(
-        ModeledNamespace.create(
-            server,
-            "http://opcfoundation.org/UA/IA/",
-            ExampleServer.class.getResourceAsStream("/Opc.Ua.IA.NodeSet2.xml")
-        )
-    );
+    try (InputStream is = ExampleServer.class.getResourceAsStream("/Opc.Ua.IA.NodeSet2.xml")) {
+      namespaces.add(ModeledNamespace.createFromNodeSet(server, is));
+    }
 
-    namespaces.add(
-        ModeledNamespace.create(
-            server,
-            "http://opcfoundation.org/UA/Machinery/",
-            ExampleServer.class.getResourceAsStream("/Opc.Ua.Machinery.NodeSet2.xml")
-        )
-    );
+    try (InputStream is = ExampleServer.class.getResourceAsStream("/Opc.Ua.Machinery.NodeSet2.xml")) {
+      namespaces.add(ModeledNamespace.createFromNodeSet(server, is));
+    }
 
-    namespaces.add(
-        ModeledNamespace.create(
-            server,
-            "http://opcfoundation.org/UA/MachineTool/",
-            ExampleServer.class.getResourceAsStream("/Opc.Ua.MachineTool.NodeSet2.xml")
-        )
-    );
+    try (InputStream is = ExampleServer.class.getResourceAsStream("/Opc.Ua.MachineTool.NodeSet2.xml")) {
+      namespaces.add(ModeledNamespace.createFromNodeSet(server, is));
+    }
 
-    namespaces.add(
-        ModeledNamespace.create(
-            server,
-            "http://yourorganisation.org/MachineTool-Example/",
-            ExampleServer.class.getResourceAsStream("/Machinetool-Example.xml")
-        )
-    );
+    try (InputStream is = ExampleServer.class.getResourceAsStream("/Machinetool-Example.xml")) {
+      namespaces.add(ModeledNamespace.createFromNodeSet(server, is));
+    }
   }
 
   private Set<EndpointConfiguration> createEndpointConfigurations(X509Certificate certificate) {

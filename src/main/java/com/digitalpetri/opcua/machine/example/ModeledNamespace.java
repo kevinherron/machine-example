@@ -31,14 +31,26 @@ public class ModeledNamespace extends ModeledAddressSpace implements Namespace {
     return namespaceIndex;
   }
 
-  public static ModeledNamespace create(
+  /**
+   * Create a {@link ModeledNamespace} from the contents of a UANodeSet2 XML file.
+   *
+   * @param server      the {@link OpcUaServer} instance the namespace will belong to.
+   * @param inputStream an {@link InputStream} to read the UANodeSet2 XML file from.
+   * @return a {@link ModeledNamespace} containing the nodes defined by a UANodeSet2 XML file.
+   * @throws JAXBException if an error occurs while parsing the UANodeSet2 XML file.
+   */
+  public static ModeledNamespace createFromNodeSet(
       OpcUaServer server,
-      String namespaceUri,
-      InputStream modelInputStream
+      InputStream inputStream
   ) throws JAXBException {
 
     try {
-      UaNodeSet nodeSet = UaNodeSet.parse(modelInputStream);
+      UaNodeSet nodeSet = UaNodeSet.parse(inputStream);
+
+      // Namespace URI used by the model will always be at index 1 in the NamespaceTable of a
+      // UaNodeSet. Additional namespaces referenced by the model will be at subsequent indices.
+      // The standard OPC UA namespace is at index 0 as expected.
+      String namespaceUri = nodeSet.getNamespaceTable().getUri(1);
 
       ModeledNamespace namespace = new ModeledNamespace(server, namespaceUri, nodeSet);
 
