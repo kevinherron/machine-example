@@ -55,355 +55,408 @@ import static org.eclipse.milo.opcua.sdk.core.util.StreamUtil.opt2stream;
 
 public class ModeledAddressSpace extends ManagedAddressSpaceFragmentWithLifecycle {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private final SubscriptionModel subscriptionModel;
-    private final AddressSpaceFilter addressSpaceFilter;
+  private final SubscriptionModel subscriptionModel;
+  private final AddressSpaceFilter addressSpaceFilter;
 
-    private final UaNodeSet nodeSet;
+  private final UaNodeSet nodeSet;
 
-    public ModeledAddressSpace(OpcUaServer server, UaNodeSet nodeSet) {
-        super(server);
+  public ModeledAddressSpace(OpcUaServer server, UaNodeSet nodeSet) {
+    super(server);
 
-        this.nodeSet = nodeSet;
+    this.nodeSet = nodeSet;
 
-        addressSpaceFilter = SimpleAddressSpaceFilter.create(getNodeManager()::containsNode);
+    addressSpaceFilter = SimpleAddressSpaceFilter.create(getNodeManager()::containsNode);
 
-        subscriptionModel = new SubscriptionModel(server, this);
+    subscriptionModel = new SubscriptionModel(server, this);
 
-        getLifecycleManager().addStartupTask(() -> {
-            nodeSet.getExplicitReferences().values().forEach(reference -> {
-                Reference translatedReference = reindex(reference);
+    getLifecycleManager().addStartupTask(() -> {
+      nodeSet.getExplicitReferences().values().forEach(reference -> {
+        Reference translatedReference = reindex(reference);
 
-                getNodeManager().addReferences(translatedReference, getServer().getNamespaceTable());
-            });
+        getNodeManager().addReferences(translatedReference, getServer().getNamespaceTable());
+      });
 
-            nodeSet.getNodes().values().forEach(a -> {
-                switch (a.getNodeClass()) {
-                    case ObjectType: {
-                        UaNode node = buildObjectTypeNode((ObjectTypeNodeAttributes) a);
+      nodeSet.getNodes().values().forEach(a -> {
+        switch (a.getNodeClass()) {
+          case ObjectType: {
+            UaNode node = buildObjectTypeNode((ObjectTypeNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case VariableType: {
-                        UaNode node = buildVariableTypeNode((VariableTypeNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case VariableType: {
+            UaNode node = buildVariableTypeNode((VariableTypeNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    default:
-                        break;
-                }
-            });
+            getNodeManager().addNode(node);
+            break;
+          }
+          default:
+            break;
+        }
+      });
 
-            nodeSet.getNodes().values().forEach(a -> {
-                switch (a.getNodeClass()) {
-                    case DataType: {
-                        UaNode node = buildDataTypeNode((DataTypeNodeAttributes) a);
+      nodeSet.getNodes().values().forEach(a -> {
+        switch (a.getNodeClass()) {
+          case DataType: {
+            UaNode node = buildDataTypeNode((DataTypeNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case Method: {
-                        UaNode node = buildMethodNode((MethodNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case Method: {
+            UaNode node = buildMethodNode((MethodNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case Object: {
-                        UaNode node = buildObjectNode((ObjectNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case Object: {
+            UaNode node = buildObjectNode((ObjectNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case ReferenceType: {
-                        UaReferenceTypeNode node = buildReferenceTypeNode((ReferenceTypeNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case ReferenceType: {
+            UaReferenceTypeNode node = buildReferenceTypeNode((ReferenceTypeNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case Variable: {
-                        UaNode node = buildVariableNode(nodeSet, (VariableNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case Variable: {
+            UaNode node = buildVariableNode(nodeSet, (VariableNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    case View: {
-                        UaNode node = buildViewNode((ViewNodeAttributes) a);
+            getNodeManager().addNode(node);
+            break;
+          }
+          case View: {
+            UaNode node = buildViewNode((ViewNodeAttributes) a);
 
-                        getNodeManager().addNode(node);
-                        break;
-                    }
-                    default:
-                        break;
-                }
-            });
+            getNodeManager().addNode(node);
+            break;
+          }
+          default:
+            break;
+        }
+      });
 
-            List<UaReferenceTypeNode> referenceTypeNodes = nodeSet.getNodes().values().stream()
-                .filter(a -> a.getNodeClass() == NodeClass.ReferenceType)
-                .flatMap(a -> {
-                    NodeId nodeId = reindex(a.getNodeId());
-                    Optional<UaNode> node = getNodeManager().getNode(nodeId);
-                    return opt2stream(node.map(UaReferenceTypeNode.class::cast));
-                })
-                .collect(Collectors.toList());
+      List<UaReferenceTypeNode> referenceTypeNodes = nodeSet.getNodes().values().stream()
+          .filter(a -> a.getNodeClass() == NodeClass.ReferenceType)
+          .flatMap(a -> {
+            NodeId nodeId = reindex(a.getNodeId());
+            Optional<UaNode> node = getNodeManager().getNode(nodeId);
+            return opt2stream(node.map(UaReferenceTypeNode.class::cast));
+          })
+          .collect(Collectors.toList());
 
-            referenceTypeNodes.forEach(node -> {
-                final Optional<NodeId> superTypeId = node.getReferences().stream()
-                    .filter(r -> Identifiers.HasSubtype.equals(r.getReferenceTypeId()) && !r.isForward())
-                    .findFirst()
-                    .map(Reference::getReferenceTypeId);
+      referenceTypeNodes.forEach(node -> {
+        final Optional<NodeId> superTypeId = node.getReferences().stream()
+            .filter(r -> Identifiers.HasSubtype.equals(r.getReferenceTypeId()) && !r.isForward())
+            .findFirst()
+            .map(Reference::getReferenceTypeId);
 
-                getServer().getReferenceTypes().put(node.getNodeId(), new ReferenceType() {
-                    @Override
-                    public NodeId getNodeId() {
-                        return node.getNodeId();
-                    }
+        getServer().getReferenceTypes().put(node.getNodeId(), new ReferenceType() {
+          @Override
+          public NodeId getNodeId() {
+            return node.getNodeId();
+          }
 
-                    @Override
-                    public QualifiedName getBrowseName() {
-                        return node.getBrowseName();
-                    }
+          @Override
+          public QualifiedName getBrowseName() {
+            return node.getBrowseName();
+          }
 
-                    @Override
-                    public Optional<String> getInverseName() {
-                        return Optional.ofNullable(node.getInverseName().getText());
-                    }
+          @Override
+          public Optional<String> getInverseName() {
+            return Optional.ofNullable(node.getInverseName().getText());
+          }
 
-                    @Override
-                    public boolean isSymmetric() {
-                        return node.getSymmetric();
-                    }
+          @Override
+          public boolean isSymmetric() {
+            return node.getSymmetric();
+          }
 
-                    @Override
-                    public boolean isAbstract() {
-                        return node.getIsAbstract();
-                    }
+          @Override
+          public boolean isAbstract() {
+            return node.getIsAbstract();
+          }
 
-                    @Override
-                    public Optional<NodeId> getSuperTypeId() {
-                        return superTypeId;
-                    }
-                });
-            });
+          @Override
+          public Optional<NodeId> getSuperTypeId() {
+            return superTypeId;
+          }
         });
-    }
+      });
+    });
+  }
 
-    @Override
-    public AddressSpaceFilter getFilter() {
-        return addressSpaceFilter;
-    }
+  @Override
+  public AddressSpaceFilter getFilter() {
+    return addressSpaceFilter;
+  }
 
-    @Override
-    public void onDataItemsCreated(List<DataItem> dataItems) {
-        subscriptionModel.onDataItemsCreated(dataItems);
-    }
+  @Override
+  public void onDataItemsCreated(List<DataItem> dataItems) {
+    subscriptionModel.onDataItemsCreated(dataItems);
+  }
 
-    @Override
-    public void onDataItemsModified(List<DataItem> dataItems) {
-        subscriptionModel.onDataItemsModified(dataItems);
-    }
+  @Override
+  public void onDataItemsModified(List<DataItem> dataItems) {
+    subscriptionModel.onDataItemsModified(dataItems);
+  }
 
-    @Override
-    public void onDataItemsDeleted(List<DataItem> dataItems) {
-        subscriptionModel.onDataItemsDeleted(dataItems);
-    }
+  @Override
+  public void onDataItemsDeleted(List<DataItem> dataItems) {
+    subscriptionModel.onDataItemsDeleted(dataItems);
+  }
 
-    @Override
-    public void onMonitoringModeChanged(List<MonitoredItem> monitoredItems) {
-        subscriptionModel.onMonitoringModeChanged(monitoredItems);
-    }
+  @Override
+  public void onMonitoringModeChanged(List<MonitoredItem> monitoredItems) {
+    subscriptionModel.onMonitoringModeChanged(monitoredItems);
+  }
 
-    /**
-     * Re-index {@code originalNodeId} from its original namespace index to the corresponding index in the server for
-     * its original namespace URI.
-     *
-     * @param originalNodeId a {@link NodeId} from the {@link UaNodeSet}.
-     * @return a {@link NodeId} that has been re-indexed for the current server.
-     */
-    protected NodeId reindex(NodeId originalNodeId) {
-        NamespaceTable namespaceTable = getServer().getNamespaceTable();
-        String namespaceUri = nodeSet.getNamespaceTable().getUri(originalNodeId.getNamespaceIndex());
+  /**
+   * Re-index {@code originalNodeId} from its original namespace index to the corresponding index in the server for
+   * its original namespace URI.
+   *
+   * @param originalNodeId a {@link NodeId} from the {@link UaNodeSet}.
+   * @return a {@link NodeId} that has been re-indexed for the current server.
+   */
+  protected NodeId reindex(NodeId originalNodeId) {
+    NamespaceTable namespaceTable = getServer().getNamespaceTable();
+    String namespaceUri = nodeSet.getNamespaceTable().getUri(originalNodeId.getNamespaceIndex());
 
-        return originalNodeId.reindex(namespaceTable, namespaceUri);
-    }
+    return originalNodeId.reindex(namespaceTable, namespaceUri);
+  }
 
-    /**
-     * Re-index {@code originalExpandedNodeId} from its original namespace index to the corresponding index in the
-     * server for its namespace URI derived from the original namespace index.
-     *
-     * @param originalExpandedNodeId an {@link ExpandedNodeId} from the {@link UaNodeSet}.
-     * @return a {@link ExpandedNodeId} that has been re-indexed for the current server.
-     */
-    protected ExpandedNodeId reindex(ExpandedNodeId originalExpandedNodeId) {
-        if (originalExpandedNodeId.isAbsolute()) {
-            // namespaceUri is specified; namespaceIndex is ignored
-            return originalExpandedNodeId;
-        } else {
-            NamespaceTable namespaceTable = getServer().getNamespaceTable();
+  /**
+   * Re-index {@code originalExpandedNodeId} from its original namespace index to the corresponding index in the
+   * server for its namespace URI derived from the original namespace index.
+   *
+   * @param originalExpandedNodeId an {@link ExpandedNodeId} from the {@link UaNodeSet}.
+   * @return a {@link ExpandedNodeId} that has been re-indexed for the current server.
+   */
+  protected ExpandedNodeId reindex(ExpandedNodeId originalExpandedNodeId) {
+    if (originalExpandedNodeId.isAbsolute()) {
+      // namespaceUri is specified; namespaceIndex is ignored
+      return originalExpandedNodeId;
+    } else {
+      NamespaceTable namespaceTable = getServer().getNamespaceTable();
 
-            UShort originalNamespaceIndex = originalExpandedNodeId.getNamespaceIndex();
-            String namespaceUri = nodeSet.getNamespaceTable().getUri(originalNamespaceIndex);
-            UShort newNamespaceIndex = namespaceTable.getIndex(namespaceUri);
+      UShort originalNamespaceIndex = originalExpandedNodeId.getNamespaceIndex();
+      String namespaceUri = nodeSet.getNamespaceTable().getUri(originalNamespaceIndex);
+      UShort newNamespaceIndex = namespaceTable.getIndex(namespaceUri);
 
-            if (newNamespaceIndex != null
-                && !Objects.equals(newNamespaceIndex, originalNamespaceIndex)) {
+      if (newNamespaceIndex != null
+          && !Objects.equals(newNamespaceIndex, originalNamespaceIndex)) {
 
-                return new ExpandedNodeId(
-                    newNamespaceIndex,
-                    null,
-                    originalExpandedNodeId.getIdentifier(),
-                    originalExpandedNodeId.getServerIndex()
-                );
-            } else {
-                return originalExpandedNodeId;
-            }
-        }
-    }
-
-    /**
-     * Re-index the NodeIds in {@code originalReference} from their original namespace indices to the corresponding
-     * indices in the server for the original namespace URIs.
-     *
-     * @param originalReference a {@link Reference} from the {@link UaNodeSet}.
-     * @return a {@link Reference} that has been re-indexed for the current server.
-     */
-    protected Reference reindex(Reference originalReference) {
-        String sourceNamespaceUri = nodeSet.getNamespaceTable()
-            .getUri(originalReference.getSourceNodeId().getNamespaceIndex());
-
-        String referenceNamespaceUri = nodeSet.getNamespaceTable()
-            .getUri(originalReference.getReferenceTypeId().getNamespaceIndex());
-
-        String targetNamespaceUri = nodeSet.getNamespaceTable()
-            .getUri(originalReference.getTargetNodeId().getNamespaceIndex());
-
-        return originalReference.reindex(
-            getServer().getNamespaceTable(),
-            sourceNamespaceUri,
-            referenceNamespaceUri,
-            targetNamespaceUri
+        return new ExpandedNodeId(
+            newNamespaceIndex,
+            null,
+            originalExpandedNodeId.getIdentifier(),
+            originalExpandedNodeId.getServerIndex()
         );
+      } else {
+        return originalExpandedNodeId;
+      }
     }
+  }
 
-    /**
-     * Re-index {@code originalName} from its original namespace index to the corresponding index in the server for its
-     * original namespace URI.
-     *
-     * @param originalName a {@link QualifiedName} from the {@link UaNodeSet}.
-     * @return a {@link QualifiedName} that has been re-indexed for the current server.
-     */
-    protected QualifiedName reindex(QualifiedName originalName) {
-        NamespaceTable namespaceTable = getServer().getNamespaceTable();
-        String namespaceUri = nodeSet.getNamespaceTable().getUri(originalName.getNamespaceIndex());
+  /**
+   * Re-index the NodeIds in {@code originalReference} from their original namespace indices to the corresponding
+   * indices in the server for the original namespace URIs.
+   *
+   * @param originalReference a {@link Reference} from the {@link UaNodeSet}.
+   * @return a {@link Reference} that has been re-indexed for the current server.
+   */
+  protected Reference reindex(Reference originalReference) {
+    String sourceNamespaceUri = nodeSet.getNamespaceTable()
+        .getUri(originalReference.getSourceNodeId().getNamespaceIndex());
 
-        return originalName.reindex(namespaceTable, namespaceUri);
+    String referenceNamespaceUri = nodeSet.getNamespaceTable()
+        .getUri(originalReference.getReferenceTypeId().getNamespaceIndex());
+
+    String targetNamespaceUri = nodeSet.getNamespaceTable()
+        .getUri(originalReference.getTargetNodeId().getNamespaceIndex());
+
+    return originalReference.reindex(
+        getServer().getNamespaceTable(),
+        sourceNamespaceUri,
+        referenceNamespaceUri,
+        targetNamespaceUri
+    );
+  }
+
+  /**
+   * Re-index {@code originalName} from its original namespace index to the corresponding index in the server for its
+   * original namespace URI.
+   *
+   * @param originalName a {@link QualifiedName} from the {@link UaNodeSet}.
+   * @return a {@link QualifiedName} that has been re-indexed for the current server.
+   */
+  protected QualifiedName reindex(QualifiedName originalName) {
+    NamespaceTable namespaceTable = getServer().getNamespaceTable();
+    String namespaceUri = nodeSet.getNamespaceTable().getUri(originalName.getNamespaceIndex());
+
+    return originalName.reindex(namespaceTable, namespaceUri);
+  }
+
+  /**
+   * Re-indexes a {@link DataValue} if necessary.
+   * <p>
+   * If {@code value} contains an ExtensionObject the encodingId is re-indexed. Then the struct is decoded and any
+   * fields that qualify are also re-indexed (e.g. the dataType field in {@link Argument}).
+   * <p>
+   * This is verging on major hack because the OPC UA modelling concept is somewhat flawed when it comes to encoding
+   * embedded values that reference non-absolute namespaces.
+   *
+   * @param value the {@link DataValue} to re-index.
+   * @return a {@link DataValue} that has been re-indexed for the current server.
+   */
+  protected DataValue reindex(DataValue value) {
+    try {
+      if (value == null) return null;
+      Variant variant = value.getValue();
+      if (variant == null) return value;
+      Object o = variant.getValue();
+      if (o == null) return value;
+      return new DataValue(new Variant(reindexValue(o)));
+    } catch (Throwable t) {
+      logger.warn("Re-indexing failed: {}", value, t);
+      return value;
     }
+  }
 
-    /**
-     * Re-indexes a {@link DataValue} if necessary.
-     * <p>
-     * If {@code value} contains an ExtensionObject the encodingId is re-indexed. Then the struct is decoded and any
-     * fields that qualify are also re-indexed (e.g. the dataType field in {@link Argument}).
-     * <p>
-     * This is verging on major hack because the OPC UA modelling concept is somewhat flawed when it comes to encoding
-     * embedded values that reference non-absolute namespaces.
-     *
-     * @param value the {@link DataValue} to re-index.
-     * @return a {@link DataValue} that has been re-indexed for the current server.
-     */
-    protected DataValue reindex(DataValue value) {
+  protected Object reindexValue(Object value) {
+    if (value == null) return null;
+
+    Class<?> clazz = value.getClass();
+
+    if (clazz.isArray()) {
+      @SuppressWarnings("rawtypes")
+      Class componentType = ArrayUtil.getType(value);
+
+      if (componentType != NodeId.class
+          && componentType != ExpandedNodeId.class
+          && componentType != QualifiedName.class
+          && componentType != ExtensionObject.class
+      ) {
+
+        return value;
+      } else {
+        //noinspection unchecked
+        return ArrayUtil.transformArray(
+            value,
+            this::reindexValue,
+            componentType
+        );
+      }
+    } else {
+      if (clazz == NodeId.class) {
+        return reindex((NodeId) value);
+      } else if (clazz == ExpandedNodeId.class) {
+        return reindex((ExpandedNodeId) value);
+      } else if (clazz == QualifiedName.class) {
+        return reindex((QualifiedName) value);
+      } else if (clazz == ExtensionObject.class) {
+        ExtensionObject xo = (ExtensionObject) value;
+
+        if (xo.getBodyType() == ExtensionObject.BodyType.ByteString) {
+          xo = new ExtensionObject(
+              (ByteString) xo.getBody(),
+              reindex(xo.getEncodingId())
+          );
+        } else if (xo.getBodyType() == ExtensionObject.BodyType.XmlElement) {
+          xo = new ExtensionObject(
+              (XmlElement) xo.getBody(),
+              reindex(xo.getEncodingId())
+          );
+        }
+
         try {
-            if (value == null) return null;
-            Variant variant = value.getValue();
-            if (variant == null) return value;
-            Object o = variant.getValue();
-            if (o == null) return value;
-            return new DataValue(new Variant(reindexValue(o)));
+          Object struct = xo.decode(getServer().getSerializationContext());
+
+          if (struct instanceof Argument) {
+            Argument argument = (Argument) struct;
+
+            return ExtensionObject.encode(
+                getServer().getSerializationContext(),
+                new Argument(
+                    argument.getName(),
+                    reindex(argument.getDataType()),
+                    argument.getValueRank(),
+                    argument.getArrayDimensions(),
+                    argument.getDescription()
+                )
+            );
+          } else {
+            return xo;
+          }
         } catch (Throwable t) {
-            logger.warn("Re-indexing failed: {}", value, t);
-            return value;
+          logger.warn("Decoding failed: {}", xo, t);
+          return xo;
         }
+      } else {
+        return value;
+      }
     }
+  }
 
-    protected Object reindexValue(Object value) {
-        if (value == null) return null;
+  protected UaNode buildDataTypeNode(DataTypeNodeAttributes attributes) {
+    return new UaDataTypeNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        attributes.isAbstract()
+    );
+  }
 
-        Class<?> clazz = value.getClass();
+  protected UaNode buildMethodNode(MethodNodeAttributes attributes) {
+    return new UaMethodNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        attributes.isExecutable(),
+        attributes.isUserExecutable()
+    );
+  }
 
-        if (clazz.isArray()) {
-            @SuppressWarnings("rawtypes")
-            Class componentType = ArrayUtil.getType(value);
+  protected UaNode buildObjectNode(ObjectNodeAttributes attributes) {
+    List<Reference> references = nodeSet.getExplicitReferences().get(attributes.getNodeId());
 
-            if (componentType != NodeId.class
-                && componentType != ExpandedNodeId.class
-                && componentType != QualifiedName.class
-                && componentType != ExtensionObject.class
-            ) {
+    NodeId typeDefinition = references.stream()
+        .filter(Reference.HAS_TYPE_DEFINITION_PREDICATE)
+        .findFirst()
+        .flatMap(r -> r.getTargetNodeId().local(getServer().getNamespaceTable()))
+        .orElse(NodeId.NULL_VALUE);
 
-                return value;
-            } else {
-                //noinspection unchecked
-                return ArrayUtil.transformArray(
-                    value,
-                    this::reindexValue,
-                    componentType
-                );
-            }
-        } else {
-            if (clazz == NodeId.class) {
-                return reindex((NodeId) value);
-            } else if (clazz == ExpandedNodeId.class) {
-                return reindex((ExpandedNodeId) value);
-            } else if (clazz == QualifiedName.class) {
-                return reindex((QualifiedName) value);
-            } else if (clazz == ExtensionObject.class) {
-                ExtensionObject xo = (ExtensionObject) value;
+    Optional<ObjectNodeConstructor> nodeFactory =
+        getServer().getObjectTypeManager().getNodeFactory(typeDefinition);
 
-                if (xo.getBodyType() == ExtensionObject.BodyType.ByteString) {
-                    xo = new ExtensionObject(
-                        (ByteString) xo.getBody(),
-                        reindex(xo.getEncodingId())
-                    );
-                } else if (xo.getBodyType() == ExtensionObject.BodyType.XmlElement) {
-                    xo = new ExtensionObject(
-                        (XmlElement) xo.getBody(),
-                        reindex(xo.getEncodingId())
-                    );
-                }
+    return nodeFactory.map(factory -> {
+      UaObjectNode node = factory.apply(
+          getNodeContext(),
+          reindex(attributes.getNodeId()),
+          reindex(attributes.getBrowseName()),
+          attributes.getDisplayName(),
+          attributes.getDescription(),
+          attributes.getWriteMask(),
+          attributes.getUserWriteMask()
+      );
 
-                try {
-                    Object struct = xo.decode(getServer().getSerializationContext());
+      node.setEventNotifier(attributes.getEventNotifier());
 
-                    if (struct instanceof Argument) {
-                        Argument argument = (Argument) struct;
-
-                        return ExtensionObject.encode(
-                            getServer().getSerializationContext(),
-                            new Argument(
-                                argument.getName(),
-                                reindex(argument.getDataType()),
-                                argument.getValueRank(),
-                                argument.getArrayDimensions(),
-                                argument.getDescription()
-                            )
-                        );
-                    } else {
-                        return xo;
-                    }
-                } catch (Throwable t) {
-                    logger.warn("Decoding failed: {}", xo, t);
-                    return xo;
-                }
-            } else {
-                return value;
-            }
-        }
-    }
-
-    protected UaNode buildDataTypeNode(DataTypeNodeAttributes attributes) {
-        return new UaDataTypeNode(
+      return node;
+    }).orElseGet(() ->
+        new UaObjectNode(
             getNodeContext(),
             reindex(attributes.getNodeId()),
             reindex(attributes.getBrowseName()),
@@ -411,148 +464,74 @@ public class ModeledAddressSpace extends ManagedAddressSpaceFragmentWithLifecycl
             attributes.getDescription(),
             attributes.getWriteMask(),
             attributes.getUserWriteMask(),
-            attributes.isAbstract()
-        );
-    }
+            attributes.getEventNotifier()
+        )
+    );
+  }
 
-    protected UaNode buildMethodNode(MethodNodeAttributes attributes) {
-        return new UaMethodNode(
-            getNodeContext(),
-            reindex(attributes.getNodeId()),
-            reindex(attributes.getBrowseName()),
-            attributes.getDisplayName(),
-            attributes.getDescription(),
-            attributes.getWriteMask(),
-            attributes.getUserWriteMask(),
-            attributes.isExecutable(),
-            attributes.isUserExecutable()
-        );
-    }
+  protected UaNode buildObjectTypeNode(ObjectTypeNodeAttributes attributes) {
+    return new UaObjectTypeNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        attributes.isAbstract()
+    );
+  }
 
-    protected UaNode buildObjectNode(ObjectNodeAttributes attributes) {
-        List<Reference> references = nodeSet.getExplicitReferences().get(attributes.getNodeId());
+  protected UaReferenceTypeNode buildReferenceTypeNode(ReferenceTypeNodeAttributes attributes) {
+    return new UaReferenceTypeNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        attributes.isAbstract(),
+        attributes.isSymmetric(),
+        attributes.getInverseName()
+    );
+  }
 
-        NodeId typeDefinition = references.stream()
-            .filter(Reference.HAS_TYPE_DEFINITION_PREDICATE)
-            .findFirst()
-            .flatMap(r -> r.getTargetNodeId().local(getServer().getNamespaceTable()))
-            .orElse(NodeId.NULL_VALUE);
+  protected UaNode buildVariableNode(UaNodeSet nodeSet, VariableNodeAttributes attributes) {
+    List<Reference> references = nodeSet.getExplicitReferences().get(attributes.getNodeId());
 
-        Optional<ObjectNodeConstructor> nodeFactory =
-            getServer().getObjectTypeManager().getNodeFactory(typeDefinition);
+    NodeId typeDefinition = references.stream()
+        .filter(Reference.HAS_TYPE_DEFINITION_PREDICATE)
+        .findFirst()
+        .flatMap(r -> r.getTargetNodeId().local(getServer().getNamespaceTable()))
+        .orElse(NodeId.NULL_VALUE);
 
-        return nodeFactory.map(factory -> {
-            UaObjectNode node = factory.apply(
-                getNodeContext(),
-                reindex(attributes.getNodeId()),
-                reindex(attributes.getBrowseName()),
-                attributes.getDisplayName(),
-                attributes.getDescription(),
-                attributes.getWriteMask(),
-                attributes.getUserWriteMask()
-            );
+    Optional<VariableTypeManager.VariableNodeConstructor> nodeFactory =
+        getServer().getVariableTypeManager().getNodeFactory(typeDefinition);
 
-            node.setEventNotifier(attributes.getEventNotifier());
+    return nodeFactory.map(factory -> {
+      UaVariableNode node = factory.apply(
+          getNodeContext(),
+          reindex(attributes.getNodeId()),
+          reindex(attributes.getBrowseName()),
+          attributes.getDisplayName(),
+          attributes.getDescription(),
+          attributes.getWriteMask(),
+          attributes.getUserWriteMask()
+      );
 
-            return node;
-        }).orElseGet(() ->
-            new UaObjectNode(
-                getNodeContext(),
-                reindex(attributes.getNodeId()),
-                reindex(attributes.getBrowseName()),
-                attributes.getDisplayName(),
-                attributes.getDescription(),
-                attributes.getWriteMask(),
-                attributes.getUserWriteMask(),
-                attributes.getEventNotifier()
-            )
-        );
-    }
+      node.setValue(reindex(attributes.getValue()));
+      node.setDataType(reindex(attributes.getDataType()));
+      node.setValueRank(attributes.getValueRank());
+      node.setArrayDimensions(attributes.getArrayDimensions());
+      node.setAccessLevel(attributes.getAccessLevel());
+      node.setUserAccessLevel(attributes.getUserAccessLevel());
+      node.setMinimumSamplingInterval(attributes.getMinimumSamplingInterval());
+      node.setHistorizing(attributes.isHistorizing());
 
-    protected UaNode buildObjectTypeNode(ObjectTypeNodeAttributes attributes) {
-        return new UaObjectTypeNode(
-            getNodeContext(),
-            reindex(attributes.getNodeId()),
-            reindex(attributes.getBrowseName()),
-            attributes.getDisplayName(),
-            attributes.getDescription(),
-            attributes.getWriteMask(),
-            attributes.getUserWriteMask(),
-            attributes.isAbstract()
-        );
-    }
-
-    protected UaReferenceTypeNode buildReferenceTypeNode(ReferenceTypeNodeAttributes attributes) {
-        return new UaReferenceTypeNode(
-            getNodeContext(),
-            reindex(attributes.getNodeId()),
-            reindex(attributes.getBrowseName()),
-            attributes.getDisplayName(),
-            attributes.getDescription(),
-            attributes.getWriteMask(),
-            attributes.getUserWriteMask(),
-            attributes.isAbstract(),
-            attributes.isSymmetric(),
-            attributes.getInverseName()
-        );
-    }
-
-    protected UaNode buildVariableNode(UaNodeSet nodeSet, VariableNodeAttributes attributes) {
-        List<Reference> references = nodeSet.getExplicitReferences().get(attributes.getNodeId());
-
-        NodeId typeDefinition = references.stream()
-            .filter(Reference.HAS_TYPE_DEFINITION_PREDICATE)
-            .findFirst()
-            .flatMap(r -> r.getTargetNodeId().local(getServer().getNamespaceTable()))
-            .orElse(NodeId.NULL_VALUE);
-
-        Optional<VariableTypeManager.VariableNodeConstructor> nodeFactory =
-            getServer().getVariableTypeManager().getNodeFactory(typeDefinition);
-
-        return nodeFactory.map(factory -> {
-            UaVariableNode node = factory.apply(
-                getNodeContext(),
-                reindex(attributes.getNodeId()),
-                reindex(attributes.getBrowseName()),
-                attributes.getDisplayName(),
-                attributes.getDescription(),
-                attributes.getWriteMask(),
-                attributes.getUserWriteMask()
-            );
-
-            node.setValue(reindex(attributes.getValue()));
-            node.setDataType(reindex(attributes.getDataType()));
-            node.setValueRank(attributes.getValueRank());
-            node.setArrayDimensions(attributes.getArrayDimensions());
-            node.setAccessLevel(attributes.getAccessLevel());
-            node.setUserAccessLevel(attributes.getUserAccessLevel());
-            node.setMinimumSamplingInterval(attributes.getMinimumSamplingInterval());
-            node.setHistorizing(attributes.isHistorizing());
-
-            return node;
-        }).orElseGet(() ->
-            new UaVariableNode(
-                getNodeContext(),
-                reindex(attributes.getNodeId()),
-                reindex(attributes.getBrowseName()),
-                attributes.getDisplayName(),
-                attributes.getDescription(),
-                attributes.getWriteMask(),
-                attributes.getUserWriteMask(),
-                reindex(attributes.getValue()),
-                reindex(attributes.getDataType()),
-                attributes.getValueRank(),
-                attributes.getArrayDimensions(),
-                attributes.getAccessLevel(),
-                attributes.getUserAccessLevel(),
-                attributes.getMinimumSamplingInterval(),
-                attributes.isHistorizing()
-            )
-        );
-    }
-
-    protected UaNode buildVariableTypeNode(VariableTypeNodeAttributes attributes) {
-        return new UaVariableTypeNode(
+      return node;
+    }).orElseGet(() ->
+        new UaVariableNode(
             getNodeContext(),
             reindex(attributes.getNodeId()),
             reindex(attributes.getBrowseName()),
@@ -564,22 +543,43 @@ public class ModeledAddressSpace extends ManagedAddressSpaceFragmentWithLifecycl
             reindex(attributes.getDataType()),
             attributes.getValueRank(),
             attributes.getArrayDimensions(),
-            attributes.isAbstract()
-        );
-    }
+            attributes.getAccessLevel(),
+            attributes.getUserAccessLevel(),
+            attributes.getMinimumSamplingInterval(),
+            attributes.isHistorizing()
+        )
+    );
+  }
 
-    protected UaNode buildViewNode(ViewNodeAttributes attributes) {
-        return new UaViewNode(
-            getNodeContext(),
-            reindex(attributes.getNodeId()),
-            reindex(attributes.getBrowseName()),
-            attributes.getDisplayName(),
-            attributes.getDescription(),
-            attributes.getWriteMask(),
-            attributes.getUserWriteMask(),
-            attributes.isContainsNoLoops(),
-            attributes.getEventNotifier()
-        );
-    }
+  protected UaNode buildVariableTypeNode(VariableTypeNodeAttributes attributes) {
+    return new UaVariableTypeNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        reindex(attributes.getValue()),
+        reindex(attributes.getDataType()),
+        attributes.getValueRank(),
+        attributes.getArrayDimensions(),
+        attributes.isAbstract()
+    );
+  }
+
+  protected UaNode buildViewNode(ViewNodeAttributes attributes) {
+    return new UaViewNode(
+        getNodeContext(),
+        reindex(attributes.getNodeId()),
+        reindex(attributes.getBrowseName()),
+        attributes.getDisplayName(),
+        attributes.getDescription(),
+        attributes.getWriteMask(),
+        attributes.getUserWriteMask(),
+        attributes.isContainsNoLoops(),
+        attributes.getEventNotifier()
+    );
+  }
 
 }
